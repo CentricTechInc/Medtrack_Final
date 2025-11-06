@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:get/get.dart';
 import 'package:medtrac/services/callkit_service.dart';
 import 'package:medtrac/routes/app_routes.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Background message handler - must be a top-level function
 @pragma('vm:entry-point')
@@ -599,20 +600,70 @@ class NotificationService {
       print('🎯 Resource ID: ${notificationData['id']}');
     }
     
+    // Handle chat notifications
+    if (notificationData['type'] == 'chat') {
+      print('💬 Handling chat notification tap...');
+      final conversationId = notificationData['conversationId'];
+      final senderId = notificationData['senderId'];
+      
+      if (conversationId != null && senderId != null) {
+        // Fetch conversation details and navigate to chat
+        _navigateToChat(conversationId, senderId);
+      }
+      return;
+    }
+    
     // Add your navigation logic here based on notification data
     // For example:
     // if (notificationData['type'] == 'appointment') {
     //   print('🎯 Navigating to appointment details...');
     //   Get.toNamed(AppRoutes.appointmentDetails, arguments: notificationData);
-    // } else if (notificationData['type'] == 'message') {
-    //   print('🎯 Navigating to chat...');
-    //   Get.toNamed(AppRoutes.chat, arguments: notificationData);
     // } else {
     //   print('🎯 No specific navigation, going to main screen...');
     //   Get.toNamed(AppRoutes.mainScreen);
     // }
     
     print('🎯 Navigation handling completed (add custom logic above)');
+  }
+  
+  /// Navigate to chat screen when notification is tapped
+  Future<void> _navigateToChat(String conversationId, int senderId) async {
+    try {
+      print('💬 Navigating to chat: conversationId=$conversationId, senderId=$senderId');
+      
+      // Get conversation document
+      final conversationDoc = await FirebaseFirestore.instance
+          .collection('conversations')
+          .doc(conversationId)
+          .get();
+      
+      if (!conversationDoc.exists) {
+        print('❌ Conversation not found');
+        return;
+      }
+      
+      final data = conversationDoc.data()!;
+      final user = SharedPrefsService.getUserInfo;
+      final currentUserId = user.id;
+      
+      // Determine other user's details
+      final isParticipant1 = currentUserId == data['participant1Id'];
+      final otherUserId = senderId;
+      final otherUserName = isParticipant1 ? data['participant2Name'] : data['participant1Name'];
+      final otherUserProfilePicture = isParticipant1 
+          ? data['participant2ProfilePicture'] 
+          : data['participant1ProfilePicture'];
+      
+      // Navigate to chat screen
+      Get.toNamed(AppRoutes.chatScreen, arguments: {
+        'otherUserId': otherUserId,
+        'otherUserName': otherUserName ?? 'User',
+        'otherUserProfilePicture': otherUserProfilePicture ?? '',
+      });
+      
+    } catch (e) {
+      print('❌ Error navigating to chat: $e');
+    }
   }
   
   /// Handle call notification tap

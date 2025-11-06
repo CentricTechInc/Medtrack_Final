@@ -312,7 +312,24 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
                 16.verticalSpace,
                 _buildSharedDocuments(),
                 16.verticalSpace,
-                CustomElevatedButton(text: "Chat", onPressed: () => Get.toNamed(AppRoutes.chatScreen)),
+                CustomElevatedButton(
+                  text: "Chat",
+                  imagePath: Assets.chatIcon,
+                  onPressed: () {
+                    Get.toNamed(
+                      AppRoutes.chatScreen,
+                      arguments: {
+                        'otherUserId': controller.isUser 
+                            ? controller.doctorId 
+                            : controller.patientId,
+                        'otherUserName': controller.displayName,
+                        'otherUserProfilePicture': controller.displayImage,
+                      },
+                    );
+                  },
+                  isSecondary: true,
+                  isOutlined: true,
+                ),
                 32.verticalSpace,
               ],
             ),
