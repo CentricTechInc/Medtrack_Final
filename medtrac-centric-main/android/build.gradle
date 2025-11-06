@@ -1,0 +1,21 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+// Kotlin version is now configured in settings.gradle (2.2.20)
+// No need to set ext.kotlin_version here as it's handled by the plugin system
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
