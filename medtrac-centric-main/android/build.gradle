@@ -5,6 +5,33 @@ allprojects {
     }
 }
 
+subprojects {
+    afterEvaluate { project ->
+
+        if (project.plugins.hasPlugin('kotlin-android') || project.plugins.hasPlugin('org.jetbrains.kotlin.android')) {
+            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    // Set the JVM target to match the modern Java version (17 or 11)
+                    jvmTarget = '17' // Set this to '17' to match your Java task
+                }
+            }
+        }
+
+        if (project.hasProperty('android')) {
+            android {
+                // FORCE the compileSdkVersion to 36
+                compileSdkVersion 36
+
+                // Also set the recommended Java version for modern Android
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17 // Or JavaVersion.VERSION_11
+                    targetCompatibility JavaVersion.VERSION_17 // Or JavaVersion.VERSION_11
+                }
+            }
+        }
+    }
+}
+
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"

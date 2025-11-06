@@ -35,12 +35,11 @@ android {
     packagingOptions {
         // Exclude x86 architectures (emulator only, not needed for production)
         // This removes ~160MB from your APK
-        exclude 'lib/x86/**.so'
-        exclude 'lib/x86_64/**.so'
-        
+
         // Don't extract native libraries - saves space
         jniLibs {
             useLegacyPackaging = false
+            excludes += ['lib/x86/**.so', 'lib/x86_64/**.so']
         }
     }
 
