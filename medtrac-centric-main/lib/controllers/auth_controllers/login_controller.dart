@@ -33,7 +33,7 @@ class LoginController extends GetxController {
 
   // TextEditingControllers for Login
   final usernameController = TextEditingController(text: "hassansiddiqui@yopmail.com");
-  final passwordController = TextEditingController(text: "1234");
+  final passwordController = TextEditingController(text: "Rafay-12");
 
   // Validation error messages for Login
   var usernameErrorText = ''.obs;

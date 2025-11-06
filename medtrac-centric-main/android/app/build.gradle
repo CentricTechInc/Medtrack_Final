@@ -13,6 +13,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
@@ -24,7 +25,7 @@ android {
         applicationId = "com.example.medtrac"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
+        minSdkVersion = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -64,7 +65,11 @@ android {
 flutter {
     source = "../.."
 }
-
+dependencies {
+    // ... other dependencies
+    // Add this line
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.2' // Use the latest stable version
+}
 // START: FlutterFire Configuration
 apply plugin: 'com.google.gms.google-services'
 // END: FlutterFire Configuration

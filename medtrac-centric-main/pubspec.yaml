@@ -42,7 +42,7 @@ dependencies:
   chewie: ^1.8.1
   video_thumbnail: ^0.5.3
   image_picker: ^1.0.7
-  file_picker: ^6.1.1
+  file_picker: ^10.3.3
   shared_preferences: ^2.2.2
   syncfusion_flutter_charts: ^29.1.38
   signature: ^5.5.0

@@ -163,17 +163,15 @@ class ChatService extends GetxService {
         print('   participant1Id: $smallerId ($participant1Name)');
         print('   participant2Id: $largerId ($participant2Name)');
       } else {
-        // Conversation exists - update participant info to ensure it's correct
-        // This fixes cases where conversation was created with wrong names
+        // Conversation exists - only update names/pictures if needed, NEVER change IDs
         final existingData = doc.data()!;
-        final needsUpdate = 
-            existingData['participant1Id'] != smallerId ||
-            existingData['participant2Id'] != largerId ||
-            existingData['participant1Name'] != participant1Name ||
-            existingData['participant2Name'] != participant2Name;
+        final existingParticipant1Id = existingData['participant1Id'] as int?;
+        final existingParticipant2Id = existingData['participant2Id'] as int?;
         
-        if (needsUpdate) {
-          print('⚠️ Updating conversation participant info: $conversationId');
+        // Validate existing IDs are different
+        if (existingParticipant1Id == existingParticipant2Id) {
+          print('⚠️ ERROR: Existing conversation has same IDs for both participants! Fixing...');
+          // Fix corrupted conversation
           await conversationRef.update({
             'participant1Id': smallerId,
             'participant2Id': largerId,
@@ -183,7 +181,56 @@ class ChatService extends GetxService {
             'participant2ProfilePicture': participant2ProfilePicture,
             'updatedAt': Timestamp.now(),
           });
-          print('✅ Updated conversation: participant1Id=$smallerId, participant2Id=$largerId');
+          print('✅ Fixed corrupted conversation: participant1Id=$smallerId, participant2Id=$largerId');
+          return conversationId;
+        }
+        
+        // Update names/pictures based on which participant each user is
+        // NEVER change participant IDs - only update names and profile pictures
+        final updateData = <String, dynamic>{};
+        
+        if (userId1 == existingParticipant1Id) {
+          // userId1 is participant1, update participant1 info
+          if (existingData['participant1Name'] != userName1) {
+            updateData['participant1Name'] = userName1;
+          }
+          if (existingData['participant1ProfilePicture'] != userProfilePicture1) {
+            updateData['participant1ProfilePicture'] = userProfilePicture1;
+          }
+        } else if (userId1 == existingParticipant2Id) {
+          // userId1 is participant2, update participant2 info
+          if (existingData['participant2Name'] != userName1) {
+            updateData['participant2Name'] = userName1;
+          }
+          if (existingData['participant2ProfilePicture'] != userProfilePicture1) {
+            updateData['participant2ProfilePicture'] = userProfilePicture1;
+          }
+        }
+        
+        if (userId2 == existingParticipant1Id) {
+          // userId2 is participant1, update participant1 info
+          if (existingData['participant1Name'] != userName2) {
+            updateData['participant1Name'] = userName2;
+          }
+          if (existingData['participant1ProfilePicture'] != userProfilePicture2) {
+            updateData['participant1ProfilePicture'] = userProfilePicture2;
+          }
+        } else if (userId2 == existingParticipant2Id) {
+          // userId2 is participant2, update participant2 info
+          if (existingData['participant2Name'] != userName2) {
+            updateData['participant2Name'] = userName2;
+          }
+          if (existingData['participant2ProfilePicture'] != userProfilePicture2) {
+            updateData['participant2ProfilePicture'] = userProfilePicture2;
+          }
+        }
+        
+        // Only update if there are changes
+        if (updateData.isNotEmpty) {
+          updateData['updatedAt'] = Timestamp.now();
+          print('⚠️ Updating conversation participant info (names/pictures only): $conversationId');
+          await conversationRef.update(updateData);
+          print('✅ Updated conversation info');
         }
       }
       

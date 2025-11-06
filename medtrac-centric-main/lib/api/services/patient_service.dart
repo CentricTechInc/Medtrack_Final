@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:medtrac/api/http_client.dart';
@@ -16,7 +15,6 @@ import 'package:medtrac/api/models/emotions_analytics_response.dart';
 import 'package:medtrac/api/models/my_purchases_response.dart';
 
 class PatientService {
-
   /// Get emotions analytics (sleep, mood, stress) for the week
   Future<EmotionsAnalyticsResponse?> getEmotionsAnalytics() async {
     try {
@@ -30,8 +28,11 @@ class PatientService {
       return null;
     }
   }
+
   static final PatientService _instance = PatientService._internal();
+
   factory PatientService() => _instance;
+
   PatientService._internal();
 
   final HttpClient _http = HttpClient();
@@ -110,20 +111,20 @@ class PatientService {
       }
 
       // If there's a picture, use FormData, otherwise use JSON
-        final formData = FormData();
+      final formData = FormData();
 
-        // Add JSON data as fields
-        data.forEach((key, value) {
-          if (value is List) {
-            // Convert arrays to proper JSON format
-            formData.fields.add(MapEntry(key, jsonEncode(value)));
-          } else {
-            formData.fields.add(MapEntry(key, value.toString()));
-          }
-        });
+      // Add JSON data as fields
+      data.forEach((key, value) {
+        if (value is List) {
+          // Convert arrays to proper JSON format
+          formData.fields.add(MapEntry(key, jsonEncode(value)));
+        } else {
+          formData.fields.add(MapEntry(key, value.toString()));
+        }
+      });
 
-        if(picture != null) {
-          // Add picture
+      if (picture != null) {
+        // Add picture
         formData.files.add(MapEntry(
           'picture',
           await MultipartFile.fromFile(
@@ -131,29 +132,29 @@ class PatientService {
             filename: picture.path.split('/').last,
           ),
         ));
+      }
+
+      final response = await _http.put(
+        '/patient',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+        ),
+      );
+
+      final apiResponse = ApiResponse<String>.fromJson(response.data, null);
+
+      // If update was successful and user is a patient, fetch updated profile
+      if (apiResponse.success && HelperFunctions.isUser()) {
+        try {
+          await getPatientProfile();
+        } catch (e) {
+          // Don't throw error for profile fetch failure
+          print('Failed to fetch updated profile: $e');
         }
+      }
 
-        final response = await _http.put(
-          '/patient',
-          data: formData,
-          options: Options(
-            contentType: 'multipart/form-data',
-          ),
-        );
-
-        final apiResponse = ApiResponse<String>.fromJson(response.data, null);
-
-        // If update was successful and user is a patient, fetch updated profile
-        if (apiResponse.success && HelperFunctions.isUser()) {
-          try {
-            await getPatientProfile();
-          } catch (e) {
-            // Don't throw error for profile fetch failure
-            print('Failed to fetch updated profile: $e');
-          }
-        }
-
-        return apiResponse;
+      return apiResponse;
     } catch (e) {
       rethrow;
     }
@@ -221,14 +222,15 @@ class PatientService {
     required String reason,
   }) async {
     try {
-      final formData = FormData();
-      formData.fields.add(MapEntry('reason', reason));
+      // final formData = FormData();
+      // formData.fields.add(MapEntry('reason', reason));
 
       final response = await _http.put(
         '/appointments/cancel-appointment/$appointmentId',
-        data: formData,
+        data: {
+          'reason': reason,
+        },
       );
-
       return ApiResponse<String>.fromJson(
         response.data,
         (data) => data.toString(),
@@ -296,8 +298,10 @@ class PatientService {
         email: profileData.email,
         phone: profileData.phoneNumber,
         profilePicture: profileData.picture,
-        role: Role.user, // Assuming this is always a user/patient
-        isProfileComplete: true, // If we have profile data, consider it complete
+        role: Role.user,
+        // Assuming this is always a user/patient
+        isProfileComplete: true,
+        // If we have profile data, consider it complete
         age: profileData.age.toString(),
         gender: profileData.gender,
         sleepQuality: profileData.sleepQuality,
@@ -315,9 +319,8 @@ class PatientService {
         primaryConcerns: profileData.primaryConcern != null
             ? profileData.primaryConcern!
             : [],
-        medications: profileData.medication != null
-            ? profileData.medication!
-            : [],
+        medications:
+            profileData.medication != null ? profileData.medication! : [],
       );
 
       await SharedPrefsService.setUserMedicalHistory(medicalHistory);
@@ -408,13 +411,13 @@ class PatientService {
     }
   }
 
-  // /// Helper method to parse string list fields
-  // List<String> _parseStringListField(String field) {
-  //   if (field.isEmpty) return [];
-  //   return field
-  //       .split(',')
-  //       .map((s) => s.trim())
-  //       .where((s) => s.isNotEmpty)
-  //       .toList();
-  // }
+// /// Helper method to parse string list fields
+// List<String> _parseStringListField(String field) {
+//   if (field.isEmpty) return [];
+//   return field
+//       .split(',')
+//       .map((s) => s.trim())
+//       .where((s) => s.isNotEmpty)
+//       .toList();
+// }
 }
