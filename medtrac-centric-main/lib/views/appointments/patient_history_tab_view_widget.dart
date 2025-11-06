@@ -186,6 +186,7 @@ class PatientHistoryTabViewWidget extends StatelessWidget {
             PatientsHistoryWidget(
               medicationTags: controller.medication.isNotEmpty ? controller.medication : controller.medicationTags,
               primaryConcernTags: controller.primaryConcern.isNotEmpty ? controller.primaryConcern : controller.primaryConcernTags,
+              patientHistory: controller.patientHistory,
             ),
             16.verticalSpace,
             PatientHealthStatusWidget(

@@ -7,9 +7,11 @@ import 'package:medtrac/utils/app_colors.dart';
 class PatientsHistoryWidget extends StatelessWidget {
   final List<String> primaryConcernTags;
   final List<String> medicationTags;
+  final String patientHistory;
   const PatientsHistoryWidget({
     super.key,
     required this.primaryConcernTags,
+    required this.patientHistory,
     required this.medicationTags,
   });
 
@@ -32,8 +34,9 @@ class PatientsHistoryWidget extends StatelessWidget {
           ),
           8.verticalSpace,
           BodyTextOne(
-            text:
-                "I've been feeling more anxious lately & struggling to manage stress. I’m finding it hard to stay motivated & focus on daily tasks.",
+            text: patientHistory.isNotEmpty
+                ? patientHistory
+                : "No patient history available",
             color: AppColors.lightGreyText,
           ),
           10.verticalSpace,

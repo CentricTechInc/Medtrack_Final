@@ -302,6 +302,7 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
                 PatientsHistoryWidget(
                   medicationTags: controller.dynamicMedicationTags,
                   primaryConcernTags: controller.dynamicPrimaryConcernTags,
+                  patientHistory: controller.patientHistory,
                 ),
                 16.verticalSpace,
                 PatientHealthStatusWidget(
