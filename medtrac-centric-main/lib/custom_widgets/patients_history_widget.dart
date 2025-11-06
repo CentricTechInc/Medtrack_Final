@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get_utils/src/extensions/context_extensions.dart';
 import 'package:medtrac/custom_widgets/custom_text_widget.dart';
 import 'package:medtrac/custom_widgets/tag_wrap.dart';
 import 'package:medtrac/utils/app_colors.dart';
@@ -18,6 +19,7 @@ class PatientsHistoryWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: context.width,
       decoration: BoxDecoration(
         color: AppColors.bright,
         borderRadius: BorderRadius.circular(8.r),
