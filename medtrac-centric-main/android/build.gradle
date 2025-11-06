@@ -13,7 +13,8 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Kotlin version is now configured in settings.gradle (2.2.20)
+// Explicitly setting the Kotlin version
+ext.kotlin_version = '2.1.0'
 // No need to set ext.kotlin_version here as it's handled by the plugin system
 
 tasks.register("clean", Delete) {

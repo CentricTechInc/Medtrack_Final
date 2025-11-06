@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=/Users/muhammaduzair/development/flutter"
-export "FLUTTER_APPLICATION_PATH=/Users/muhammaduzair/Documents/personal-github/medtrac-centric"
+export "FLUTTER_ROOT=/Users/centric/fvm/versions/stable"
+export "FLUTTER_APPLICATION_PATH=/Users/centric/Documents/GitHub/Medtrack_Final/medtrac-centric-main"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=1.0.0"
