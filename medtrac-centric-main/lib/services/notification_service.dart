@@ -19,13 +19,87 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('📲 Message ID: ${message.messageId}');
   print('📲 From: ${message.from}');
   print('📲 Data: ${message.data}');
-  
+
+  // Initialize local notifications plugin for background handler
+  final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+
+  // Initialize Android settings
+  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
+
+  // Initialize local notifications (this is safe to call multiple times)
+  await localNotifications.initialize(initSettings);
+
+  // Create notification channel for Android 8.0+ (required for background notifications)
+  if (Platform.isAndroid) {
+    final androidImplementation = localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidImplementation != null) {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'medtrac_channel',
+        'MedTrac Notifications',
+        description: 'Notifications for MedTrac app',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      await androidImplementation.createNotificationChannel(channel);
+      print('📱 Background handler: Android notification channel created');
+    }
+  }
+
   // Check if this is a call notification
   if (message.data.containsKey('rtcToken') && message.data['rtcToken']?.isNotEmpty == true) {
     print('📞 Detected CALL notification in background');
     await _handleIncomingCallBackground(message);
   } else {
-    print('📧 Regular notification in background');
+    print('📧 Regular notification in background - showing local notification');
+
+    // Show local notification for regular messages
+    String title = message.notification?.title ?? 'New Message';
+    String body = message.notification?.body ?? 'You have a new message';
+    String payload = jsonEncode(message.data);
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'medtrac_channel',
+      'MedTrac Notifications',
+      channelDescription: 'Notifications for MedTrac app',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await localNotifications.show(
+      message.hashCode,
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
+
+    print('✅ Background notification shown: $title');
   }
 }
 
@@ -34,9 +108,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> _handleIncomingCallBackground(RemoteMessage message) async {
   try {
     print('📞 === HANDLING INCOMING CALL (BACKGROUND) ===');
-    
+
     final data = message.data;
-    
+
     // Extract call data
     final callId = data['callId'] ?? '';
     final callerId = data['callerId'] ?? '';
@@ -44,11 +118,11 @@ Future<void> _handleIncomingCallBackground(RemoteMessage message) async {
     final appointmentId = data['appointmentId'] ?? '';
     final channelName = data['channelName'] ?? '';
     final rtcToken = data['rtcToken'] ?? '';
-    
+
     // Get caller name and profile picture from data
     final callerName = data['callerName'] ?? message.notification?.title ?? 'Incoming Video Call';
     final callerProfilePicture = data['profile_picture'] ?? ''; // Backend sends 'profile_picture'
-    
+
     print('📞 Background Call Details:');
     print('  Call ID: $callId');
     print('  Caller ID: $callerId');
@@ -58,14 +132,14 @@ Future<void> _handleIncomingCallBackground(RemoteMessage message) async {
     print('  Caller Name: $callerName');
     print('  Caller Profile Picture: $callerProfilePicture');
     print('  Appointment ID: $appointmentId');
-    
+
     // Use CallKit to show incoming call UI
     try {
       // Initialize CallKit service if not already done
       if (!Get.isRegistered<CallKitService>()) {
         Get.put(CallKitService());
       }
-      
+
       final callKitService = Get.find<CallKitService>();
       await callKitService.showIncomingCall(
         callId: callId,
@@ -77,12 +151,12 @@ Future<void> _handleIncomingCallBackground(RemoteMessage message) async {
         appointmentId: appointmentId,
         // TODO: Add callerProfilePicture parameter to CallKitService
       );
-      
+
       print('✅ CallKit incoming call displayed');
     } catch (e) {
       print('❌ Error showing CallKit call: $e');
     }
-    
+
   } catch (e) {
     print('❌ Error handling incoming call in background: $e');
   }
@@ -95,9 +169,9 @@ class NotificationService {
 
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  
+
   String? _fcmToken;
-  
+
   String? get fcmToken => _fcmToken;
 
   /// Initialize the notification service
@@ -105,22 +179,22 @@ class NotificationService {
     try {
       // Initialize timezone
       tz.initializeTimeZones();
-      
+
       // Set background message handler
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      
+
       // Request notification permissions
       await _requestPermissions();
-      
+
       // Initialize local notifications
       await _initializeLocalNotifications();
-      
+
       // Get FCM token
       await _getFCMToken();
-      
+
       // Configure FCM
       await _configureFCM();
-      
+
       print('✅ Notification Service initialized successfully');
       print('🔑 FCM Token: $_fcmToken');
     } catch (e) {
@@ -153,41 +227,62 @@ class NotificationService {
   /// Initialize local notifications
   Future<void> _initializeLocalNotifications() async {
     print('📱 Initializing local notifications...');
-    
+
     // Android initialization settings
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    
+
     // iOS initialization settings
     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    
+
     // Combined initialization settings
     const InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
-    
+
     print('📱 Calling flutter_local_notifications.initialize()...');
-    
+
     // Initialize the plugin
     bool? initialized = await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
-    
+
     print('📱 Local notifications initialization result: $initialized');
-    
-    // Check if we can show notifications
+
+    // Create notification channel for Android 8.0+
     if (Platform.isAndroid) {
-      bool? areNotificationsEnabled = await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.areNotificationsEnabled();
-      print('📱 Android notifications enabled: $areNotificationsEnabled');
+      final androidImplementation = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+      if (androidImplementation != null) {
+        // Create notification channel
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'medtrac_channel',
+          'MedTrac Notifications',
+          description: 'Notifications for MedTrac app',
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+        );
+
+        await androidImplementation.createNotificationChannel(channel);
+        print('📱 Android notification channel created: medtrac_channel');
+
+        // Check if we can show notifications
+        bool? areNotificationsEnabled = await androidImplementation.areNotificationsEnabled();
+        print('📱 Android notifications enabled: $areNotificationsEnabled');
+
+        if (areNotificationsEnabled == false) {
+          print('⚠️ Android notifications are disabled. User needs to enable them in settings.');
+        }
+      }
     }
-    
+
     print('📱 Local notifications initialized successfully');
   }
 
@@ -198,10 +293,10 @@ class NotificationService {
       if (Platform.isIOS) {
         await _handleIOSToken();
       }
-      
+
       _fcmToken = await _firebaseMessaging.getToken();
       print('🔑 FCM Token retrieved: $_fcmToken');
-      
+
       // Listen for token refresh
       _firebaseMessaging.onTokenRefresh.listen((String token) {
         print('🔄 FCM Token refreshed: $token');
@@ -273,7 +368,7 @@ class NotificationService {
   /// Configure FCM message handling
   Future<void> _configureFCM() async {
     print('🔧 Configuring FCM message handlers...');
-    
+
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('📨 === FOREGROUND MESSAGE RECEIVED ===');
@@ -283,7 +378,7 @@ class NotificationService {
       print('📨 TTL: ${message.ttl}');
       print('📨 Category: ${message.category}');
       print('📨 Collapse Key: ${message.collapseKey}');
-      
+
       if (message.notification != null) {
         print('📨 Notification Title: ${message.notification!.title}');
         print('📨 Notification Body: ${message.notification!.body}');
@@ -292,18 +387,18 @@ class NotificationService {
       } else {
         print('📨 No notification payload (data-only message)');
       }
-      
+
       if (message.data.isNotEmpty) {
         print('📨 === PAYLOAD DATA ===');
         print('📨 Raw data payload: ${message.data}');
         print('📨 Payload keys: ${message.data.keys.toList()}');
         print('📨 Payload values: ${message.data.values.toList()}');
-        
+
         // Print each key-value pair individually for clarity
         message.data.forEach((key, value) {
           print('📨 Payload[$key]: $value');
         });
-        
+
         // Pretty print JSON if possible
         try {
           final prettyPayload = const JsonEncoder.withIndent('  ').convert(message.data);
@@ -315,7 +410,7 @@ class NotificationService {
       } else {
         print('📨 No data payload');
       }
-      
+
       print('📨 === PROCESSING FOREGROUND MESSAGE ===');
       _handleForegroundMessage(message);
     });
@@ -327,14 +422,14 @@ class NotificationService {
       print('📱 From: ${message.from}');
       print('📱 Notification Title: ${message.notification?.title}');
       print('📱 Notification Body: ${message.notification?.body}');
-      
+
       if (message.data.isNotEmpty) {
         print('📱 === APP OPENED PAYLOAD ===');
         print('📱 Raw payload: ${message.data}');
         message.data.forEach((key, value) {
           print('📱 Payload[$key]: $value');
         });
-        
+
         try {
           final prettyPayload = const JsonEncoder.withIndent('  ').convert(message.data);
           print('📱 Pretty payload:\n$prettyPayload');
@@ -345,7 +440,7 @@ class NotificationService {
       } else {
         print('📱 No payload data');
       }
-      
+
       print('📱 === HANDLING TAP NAVIGATION ===');
       _handleNotificationTap(message);
     });
@@ -358,14 +453,14 @@ class NotificationService {
       print('🚀 From: ${initialMessage.from}');
       print('🚀 Notification Title: ${initialMessage.notification?.title}');
       print('🚀 Notification Body: ${initialMessage.notification?.body}');
-      
+
       if (initialMessage.data.isNotEmpty) {
         print('🚀 === TERMINATED STATE PAYLOAD ===');
         print('🚀 Raw payload: ${initialMessage.data}');
         initialMessage.data.forEach((key, value) {
           print('🚀 Payload[$key]: $value');
         });
-        
+
         try {
           final prettyPayload = const JsonEncoder.withIndent('  ').convert(initialMessage.data);
           print('🚀 Pretty payload:\n$prettyPayload');
@@ -376,13 +471,13 @@ class NotificationService {
       } else {
         print('🚀 No payload data');
       }
-      
+
       print('🚀 === HANDLING INITIAL MESSAGE ===');
       _handleNotificationTap(initialMessage);
     } else {
       print('🚀 No initial message (app not opened from notification)');
     }
-    
+
     print('🔧 FCM message handlers configured successfully');
   }
 
@@ -390,48 +485,48 @@ class NotificationService {
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     try {
       print('🔍 === HANDLING FOREGROUND MESSAGE ===');
-      
+
       // Check if this is a call notification (has rtcToken)
       if (message.data.containsKey('rtcToken') && message.data['rtcToken']?.isNotEmpty == true) {
         print('📞 Detected CALL notification in foreground');
         await _handleIncomingCallForeground(message);
         return;
       }
-      
+
       print('🔍 Converting FCM message to local notification...');
-      
+
       String title = message.notification?.title ?? 'New Message';
       String body = message.notification?.body ?? 'You have a new message';
       String payload = jsonEncode(message.data);
-      
+
       print('🔍 Local notification details:');
       print('🔍 - Title: $title');
       print('🔍 - Body: $body');
       print('🔍 - Payload: $payload');
       print('🔍 - ID: ${message.hashCode}');
-      
+
       await showLocalNotification(
         id: message.hashCode,
         title: title,
         body: body,
         payload: payload,
       );
-      
+
       print('✅ Foreground message handled successfully');
     } catch (e) {
       print('❌ Error handling foreground message: $e');
       print('❌ Stack trace: ${StackTrace.current}');
     }
   }
-  
+
   /// Handle incoming call when app is in foreground
   Future<void> _handleIncomingCallForeground(RemoteMessage message) async {
     try {
       print('📞 === HANDLING INCOMING CALL (FOREGROUND) ===');
-      
+
       final data = message.data;
       print('📧 Payload: $data');
-      
+
       // Extract call data
       final callId = data['callId'] ?? '';
       final callerId = data['callerId'] ?? '';
@@ -439,11 +534,11 @@ class NotificationService {
       final appointmentId = data['appointmentId'] ?? '';
       final channelName = data['channelName'] ?? '';
       final rtcToken = data['rtcToken'] ?? '';
-      
+
       // Get caller name and profile picture from notification data
       final callerName = message.notification?.title ?? data['callerName'] ?? 'Incoming Call';
       final callerProfilePicture = data['profile_picture'] ?? ''; // Backend sends 'profile_picture'
-      
+
       print('📞 Call Details:');
       print('  Call ID: $callId');
       print('  Caller ID: $callerId');
@@ -452,7 +547,7 @@ class NotificationService {
       print('  Channel: $channelName');
       print('  Caller Name: $callerName');
       print('  Caller Profile Picture: $callerProfilePicture');
-      
+
       // Navigate directly to video call screen for foreground calls
       Get.toNamed(AppRoutes.videoCallScreen, arguments: {
         "fromAppointment": true,
@@ -468,9 +563,9 @@ class NotificationService {
         "doctorId" : HelperFunctions.isUser() ? int.tryParse(receiverId) ?? 0 : SharedPrefsService.getUserInfo.id,
         "showRinging": true, // Show ringing state for incoming calls
       });
-      
+
       print('✅ Navigated to video call screen for incoming call');
-      
+
     } catch (e) {
       print('❌ Error handling incoming call in foreground: $e');
     }
@@ -489,7 +584,7 @@ class NotificationService {
       print('📧 Title: $title');
       print('📧 Body: $body');
       print('📧 Payload: $payload');
-      
+
       const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         'medtrac_channel',
         'MedTrac Notifications',
@@ -519,7 +614,7 @@ class NotificationService {
         notificationDetails,
         payload: payload,
       );
-      
+
       print('✅ Local notification shown successfully: $title');
     } catch (e) {
       print('❌ Error showing local notification: $e');
@@ -534,22 +629,22 @@ class NotificationService {
     print('👆 Action ID: ${response.actionId}');
     print('👆 Input: ${response.input}');
     print('👆 Notification Response Type: ${response.notificationResponseType}');
-    
+
     if (response.payload != null) {
       print('👆 === TAP PAYLOAD ===');
       print('👆 Raw payload: ${response.payload}');
-      
+
       try {
         print('👆 Parsing payload JSON...');
         final data = jsonDecode(response.payload!);
         print('👆 Parsed data: $data');
-        
+
         // Print each key-value pair if it's a map
         if (data is Map<String, dynamic>) {
           data.forEach((key, value) {
             print('👆 Tap Payload[$key]: $value');
           });
-          
+
           // Pretty print JSON
           try {
             final prettyPayload = const JsonEncoder.withIndent('  ').convert(data);
@@ -559,7 +654,7 @@ class NotificationService {
           }
         }
         print('👆 === END TAP PAYLOAD ===');
-        
+
         print('👆 Calling _handleNotificationTap with parsed data...');
         _handleNotificationTap(null, data: data);
       } catch (e) {
@@ -581,14 +676,14 @@ class NotificationService {
     print('🎯 Notification data: $notificationData');
     print('🎯 Data keys: ${notificationData.keys.toList()}');
     print('🎯 Data values: ${notificationData.values.toList()}');
-    
+
     // Check if this is a call notification first
     if (notificationData.containsKey('rtcToken') && notificationData['rtcToken']?.isNotEmpty == true) {
       print('📞 Detected CALL notification tap');
       _handleCallNotificationTap(notificationData, message);
       return;
     }
-    
+
     // Log specific data fields that might be used for navigation
     if (notificationData.containsKey('type')) {
       print('🎯 Notification type: ${notificationData['type']}');
@@ -599,20 +694,20 @@ class NotificationService {
     if (notificationData.containsKey('id')) {
       print('🎯 Resource ID: ${notificationData['id']}');
     }
-    
+
     // Handle chat notifications
     if (notificationData['type'] == 'chat') {
       print('💬 Handling chat notification tap...');
       final conversationId = notificationData['conversationId'];
       final senderId = notificationData['senderId'];
-      
+
       if (conversationId != null && senderId != null) {
         // Fetch conversation details and navigate to chat
         _navigateToChat(conversationId, senderId);
       }
       return;
     }
-    
+
     // Add your navigation logic here based on notification data
     // For example:
     // if (notificationData['type'] == 'appointment') {
@@ -622,55 +717,55 @@ class NotificationService {
     //   print('🎯 No specific navigation, going to main screen...');
     //   Get.toNamed(AppRoutes.mainScreen);
     // }
-    
+
     print('🎯 Navigation handling completed (add custom logic above)');
   }
-  
+
   /// Navigate to chat screen when notification is tapped
   Future<void> _navigateToChat(String conversationId, int senderId) async {
     try {
       print('💬 Navigating to chat: conversationId=$conversationId, senderId=$senderId');
-      
+
       // Get conversation document
       final conversationDoc = await FirebaseFirestore.instance
           .collection('conversations')
           .doc(conversationId)
           .get();
-      
+
       if (!conversationDoc.exists) {
         print('❌ Conversation not found');
         return;
       }
-      
+
       final data = conversationDoc.data()!;
       final user = SharedPrefsService.getUserInfo;
       final currentUserId = user.id;
-      
+
       // Determine other user's details
       final isParticipant1 = currentUserId == data['participant1Id'];
       final otherUserId = senderId;
       final otherUserName = isParticipant1 ? data['participant2Name'] : data['participant1Name'];
-      final otherUserProfilePicture = isParticipant1 
-          ? data['participant2ProfilePicture'] 
+      final otherUserProfilePicture = isParticipant1
+          ? data['participant2ProfilePicture']
           : data['participant1ProfilePicture'];
-      
+
       // Navigate to chat screen
       Get.toNamed(AppRoutes.chatScreen, arguments: {
         'otherUserId': otherUserId,
         'otherUserName': otherUserName ?? 'User',
         'otherUserProfilePicture': otherUserProfilePicture ?? '',
       });
-      
+
     } catch (e) {
       print('❌ Error navigating to chat: $e');
     }
   }
-  
+
   /// Handle call notification tap
   void _handleCallNotificationTap(Map<String, dynamic> data, RemoteMessage? message) {
     try {
       print('📞 === HANDLING CALL NOTIFICATION TAP ===');
-      
+
       // Extract call data
       final callId = data['callId'] ?? '';
       final callerId = data['callerId'] ?? '';
@@ -678,13 +773,13 @@ class NotificationService {
       final appointmentId = data['appointmentId'] ?? '';
       final channelName = data['channelName'] ?? '';
       final rtcToken = data['rtcToken'] ?? '';
-      
+
       // Get caller name and profile picture from notification or data
       final callerName = message?.notification?.title ?? data['callerName'] ?? 'Incoming Call';
       final callerProfilePicture = data['profile_picture'] ?? ''; // Backend sends 'profile_picture'
-      
+
       print('📞 Navigating to video call screen...');
-      
+
       // Navigate to video call screen
       Get.toNamed(AppRoutes.videoCallScreen, arguments: {
         "fromAppointment": true,
@@ -700,9 +795,9 @@ class NotificationService {
         "doctorId" : HelperFunctions.isUser() ? int.tryParse(receiverId) ?? 0 : SharedPrefsService.getUserInfo.id,
         "showRinging": false, // Don't show ringing when opened from notification
       });
-      
+
       print('✅ Navigated to video call screen from notification tap');
-      
+
     } catch (e) {
       print('❌ Error handling call notification tap: $e');
     }
@@ -761,7 +856,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         payload: payload,
       );
-      
+
       print('⏰ Scheduled notification: $title at $scheduledTime');
     } catch (e) {
       print('❌ Error scheduling notification: $e');
@@ -789,14 +884,14 @@ class NotificationService {
   Future<void> refreshFCMToken() async {
     try {
       print('🔄 Manually refreshing FCM token...');
-      
+
       if (Platform.isIOS) {
         await _handleIOSToken();
       }
-      
+
       _fcmToken = await _firebaseMessaging.getToken();
       print('🔑 FCM Token refreshed manually: $_fcmToken');
-      
+
       if (_fcmToken != null) {
         _updateTokenOnServer(_fcmToken!);
       }
@@ -811,7 +906,7 @@ class NotificationService {
   /// Test method to verify notification system is working
   Future<void> testNotificationSystem() async {
     print('🧪 === TESTING NOTIFICATION SYSTEM ===');
-    
+
     // Test 1: Check if local notifications are initialized
     print('🧪 Test 1: Local notification system');
     try {
@@ -825,7 +920,7 @@ class NotificationService {
     } catch (e) {
       print('❌ Test 1 failed: $e');
     }
-    
+
     // Test 2: Check FCM token availability
     print('🧪 Test 2: FCM token availability');
     if (isTokenAvailable) {
@@ -834,7 +929,7 @@ class NotificationService {
     } else {
       print('❌ Test 2 failed: FCM token not available');
     }
-    
+
     // Test 3: Check permissions
     print('🧪 Test 3: Permission status');
     final settings = await _firebaseMessaging.getNotificationSettings();
@@ -842,13 +937,13 @@ class NotificationService {
     print('📋 Alert setting: ${settings.alert}');
     print('📋 Badge setting: ${settings.badge}');
     print('📋 Sound setting: ${settings.sound}');
-    
+
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('✅ Test 3 passed: Permissions are granted');
     } else {
       print('❌ Test 3 failed: Permissions not granted');
     }
-    
+
     print('🧪 Notification system test completed');
   }
 }
@@ -863,7 +958,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('📨 TTL: ${message.ttl}');
   print('📨 Category: ${message.category}');
   print('📨 Collapse Key: ${message.collapseKey}');
-  
+
   if (message.notification != null) {
     print('📨 Background notification title: ${message.notification!.title}');
     print('📨 Background notification body: ${message.notification!.body}');
@@ -872,18 +967,18 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   } else {
     print('📨 Background message has no notification payload (data-only)');
   }
-  
+
   if (message.data.isNotEmpty) {
     print('📨 === BACKGROUND PAYLOAD ===');
     print('📨 Raw background data: ${message.data}');
     print('📨 Background data keys: ${message.data.keys.toList()}');
     print('📨 Background data values: ${message.data.values.toList()}');
-    
+
     // Print each key-value pair individually
     message.data.forEach((key, value) {
       print('📨 Background Payload[$key]: $value');
     });
-    
+
     // Pretty print JSON if possible
     try {
       final prettyPayload = const JsonEncoder.withIndent('  ').convert(message.data);
@@ -895,9 +990,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   } else {
     print('📨 Background message has no data payload');
   }
-  
+
   // Here you can process the background message if needed
   // For example, update local database, show custom notification, etc.
-  
+
   print('📨 Background message processing completed');
 }

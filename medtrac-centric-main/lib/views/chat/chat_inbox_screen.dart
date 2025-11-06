@@ -206,10 +206,10 @@ class InboxTileWidget extends StatelessWidget {
                 text: lastMessageTime,
                 color: AppColors.dark,
               ),
-              if (unreadCount > 0) ...[
-                8.verticalSpace,
-                UnreadMessageCounterWidget(count: unreadCount),
-              ],
+              // if (unreadCount > 0) ...[
+              //   8.verticalSpace,
+              //   UnreadMessageCounterWidget(count: unreadCount),
+              // ],
             ],
           ),
         ],
