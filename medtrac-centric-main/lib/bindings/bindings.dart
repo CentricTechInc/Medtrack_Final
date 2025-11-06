@@ -21,6 +21,7 @@ import 'package:medtrac/controllers/customer_support_controller.dart';
 import 'package:medtrac/services/incoming_call_service.dart';
 import 'package:medtrac/services/pip_service.dart';
 import 'package:medtrac/services/callkit_service.dart';
+import 'package:medtrac/services/chat_service.dart';
 import 'package:medtrac/controllers/doctor_details_controller.dart';
 import 'package:medtrac/controllers/document_controller.dart';
 import 'package:medtrac/controllers/drawer_controller.dart';
@@ -86,6 +87,12 @@ class MainBinding extends Bindings {
 
     Get.put<AppointmentsController>(
       AppointmentsController(),
+      permanent: true,
+    );
+
+    // Initialize ChatService BEFORE ChatInboxController (since it depends on it)
+    Get.put<ChatService>(
+      ChatService(),
       permanent: true,
     );
 

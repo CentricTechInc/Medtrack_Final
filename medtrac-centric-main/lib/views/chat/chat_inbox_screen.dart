@@ -2,33 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:medtrac/controllers/chat_inbox_controller.dart';
+import 'package:medtrac/models/chat_models.dart';
 import 'package:medtrac/custom_widgets/custom_appbar_with_icons.dart';
 import 'package:medtrac/custom_widgets/custom_text_field.dart';
 import 'package:medtrac/custom_widgets/custom_text_widget.dart';
-import 'package:medtrac/routes/app_routes.dart';
-import 'package:medtrac/services/shared_preference_service.dart';
 import 'package:medtrac/utils/app_colors.dart';
 import 'package:medtrac/utils/assets.dart';
 import 'package:medtrac/utils/helper_functions.dart';
- 
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatInboxScreen extends GetView<ChatInboxController> {
-   ChatInboxScreen({super.key});
+  ChatInboxScreen({super.key});
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-              CustomAppBarWithIcons(scaffoldKey: _scaffoldKey,),
-            Padding(
+      body: Column(
+        children: [
+          CustomAppBarWithIcons(scaffoldKey: _scaffoldKey),
+          Expanded(
+            child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 24.w),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   16.verticalSpace,
                   CustomTextFormField(
@@ -36,62 +33,121 @@ class ChatInboxScreen extends GetView<ChatInboxController> {
                     prefixIcon: Icons.search,
                     hasBorder: false,
                     fillColor: AppColors.lightGrey,
+                    onChanged: (value) {
+                      controller.searchQuery.value = value;
+                    },
                   ),
                   32.verticalSpace,
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: ListView.separated(
-                      separatorBuilder: (context, index) => 32.verticalSpace,
-                      itemCount: 7,
-                      shrinkWrap: true, // remove this
-                      itemBuilder: (context, index) => InboxTileWidget(),
-                    ),
-                  )
+                  Expanded(
+                    child: Obx(() {
+                      if (controller.isLoadingConversations.value) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+
+                      final conversations = controller.filteredConversations;
+
+                      if (conversations.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                size: 64.sp,
+                                color: AppColors.lightGrey,
+                              ),
+                              16.verticalSpace,
+                              BodyTextOne(
+                                text: controller.searchQuery.value.isEmpty
+                                    ? "No conversations yet"
+                                    : "No conversations found",
+                                color: AppColors.darkGrey,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        separatorBuilder: (context, index) => 32.verticalSpace,
+                        itemCount: conversations.length,
+                        itemBuilder: (context, index) {
+                          final conversation = conversations[index];
+                          return InboxTileWidget(conversation: conversation);
+                        },
+                      );
+                    }),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class InboxTileWidget extends StatelessWidget {
+  final Conversation conversation;
+
   const InboxTileWidget({
     super.key,
+    required this.conversation,
   });
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<ChatInboxController>();
+    final otherUserName = conversation.getOtherUserName(controller.currentUserId);
+    final otherUserProfilePicture = conversation.getOtherUserProfilePicture(controller.currentUserId);
+    final unreadCount = controller.getUnreadCount(conversation);
+    final lastMessageTime = controller.formatTimestamp(conversation.lastMessageTime);
+
     return InkWell(
       onTap: () {
         if (HelperFunctions.shouldShowProfileCompletBottomSheet()) {
           HelperFunctions.showIncompleteProfileBottomSheet();
           return;
         }
-        Get.toNamed(AppRoutes.chatScreen);
+        controller.openChat(conversation);
       },
       child: Row(
         children: [
-          UserAvatarWidget(),
+          UserAvatarWidget(profilePictureUrl: otherUserProfilePicture),
           12.horizontalSpace,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BodyTextOne(
-                text: "Arjun Sharma",
-                fontWeight: FontWeight.w700,
-              ),
-              8.verticalSpace,
-              LastMessageWidget(),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                BodyTextOne(
+                  text: otherUserName,
+                  fontWeight: FontWeight.w700,
+                ),
+                8.verticalSpace,
+                LastMessageWidget(
+                  lastMessage: conversation.lastMessage ?? 'No messages yet',
+                  unreadCount: unreadCount,
+                ),
+              ],
+            ),
           ),
           12.horizontalSpace,
-          BodyTextOne(
-            text: "12:18",
-            color: AppColors.dark,
-          )
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              BodyTextOne(
+                text: lastMessageTime,
+                color: AppColors.dark,
+              ),
+              if (unreadCount > 0) ...[
+                8.verticalSpace,
+                UnreadMessageCounterWidget(count: unreadCount),
+              ],
+            ],
+          ),
         ],
       ),
     );
@@ -99,30 +155,53 @@ class InboxTileWidget extends StatelessWidget {
 }
 
 class UserAvatarWidget extends StatelessWidget {
+  final String profilePictureUrl;
+
   const UserAvatarWidget({
     super.key,
+    required this.profilePictureUrl,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-        width: 50.w,
-        height: 50.h,
-        decoration: BoxDecoration(
-          // borderRadius: BorderRadius.circular(20.r),
-          shape: BoxShape.circle,
-          image: DecorationImage(
-            image: AssetImage(
+      width: 50.w,
+      height: 50.h,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.lightGrey,
+      ),
+      child: profilePictureUrl.isNotEmpty
+          ? ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: profilePictureUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Image.asset(
+                  Assets.avatar,
+                  fit: BoxFit.cover,
+                ),
+                errorWidget: (context, url, error) => Image.asset(
+                  Assets.avatar,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )
+          : Image.asset(
               Assets.avatar,
+              fit: BoxFit.cover,
             ),
-          ),
-        ));
+    );
   }
 }
 
 class LastMessageWidget extends StatelessWidget {
+  final String lastMessage;
+  final int unreadCount;
+
   const LastMessageWidget({
     super.key,
+    required this.lastMessage,
+    required this.unreadCount,
   });
 
   @override
@@ -132,14 +211,17 @@ class LastMessageWidget extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(
-            width: 220.w,
+          Expanded(
             child: BodyTextTwo(
-              text: "Stand up for what you believe in or not or whatever",
+              text: lastMessage,
               overflow: TextOverflow.ellipsis,
+              fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
-          UnreadMessageCounterWidget()
+          if (unreadCount > 0) ...[
+            8.horizontalSpace,
+            UnreadMessageCounterWidget(count: unreadCount),
+          ],
         ],
       ),
     );
@@ -147,24 +229,25 @@ class LastMessageWidget extends StatelessWidget {
 }
 
 class UnreadMessageCounterWidget extends StatelessWidget {
+  final int count;
+
   const UnreadMessageCounterWidget({
     super.key,
+    required this.count,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 20.w,
-      height: 20.h,
+      padding: EdgeInsets.symmetric(horizontal: count > 9 ? 6.w : 8.w, vertical: 4.h),
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(10.r),
         color: AppColors.secondary,
       ),
-      child: Center(
-        child: BodyTextTwo(
-          text: "9",
-          color: AppColors.bright,
-        ),
+      child: BodyTextTwo(
+        text: count > 99 ? '99+' : count.toString(),
+        color: AppColors.bright,
+        fontWeight: FontWeight.w700,
       ),
     );
   }

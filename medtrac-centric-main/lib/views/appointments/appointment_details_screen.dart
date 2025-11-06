@@ -5,7 +5,10 @@ import 'package:medtrac/controllers/appointment_details_screen_controller.dart';
 import 'package:medtrac/custom_widgets/custom_app_bar.dart';
 import 'package:medtrac/custom_widgets/custom_tab_bar.dart';
 import 'package:medtrac/custom_widgets/custom_text_widget.dart';
+import 'package:medtrac/custom_widgets/custom_buttons.dart';
 import 'package:medtrac/utils/app_colors.dart';
+import 'package:medtrac/utils/assets.dart';
+import 'package:medtrac/routes/app_routes.dart';
 import 'package:medtrac/views/appointments/patient_history_tab_view_widget.dart';
 import 'package:medtrac/views/appointments/payment_details_tab_view_widget.dart';
 
@@ -130,6 +133,33 @@ class AppointmentDetailsScreen extends GetView<AppointmentDetailsController> {
                       ],
                     ),
                   ),
+                  16.verticalSpace,
+                  // Chat button for doctors
+                  if (!controller.isUser) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomElevatedButton(
+                            text: "Chat",
+                            imagePath: Assets.chatIcon,
+                            onPressed: () {
+                              Get.toNamed(
+                                AppRoutes.chatScreen,
+                                arguments: {
+                                  'otherUserId': controller.doctorAppointmentData.value?.patient?.id ?? 0,
+                                  'otherUserName': controller.patientName,
+                                  'otherUserProfilePicture': controller.patientImage,
+                                },
+                              );
+                            },
+                            isSecondary: true,
+                            isOutlined: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                    16.verticalSpace,
+                  ],
                 ],
               ),
             ),

@@ -161,7 +161,14 @@ class UserAppointmentDetailsScreen
                         imagePath: Assets.chatIcon,
                         width: 184.w,
                         onPressed: () {
-                          Get.toNamed(AppRoutes.chatScreen);
+                          Get.toNamed(
+                            AppRoutes.chatScreen,
+                            arguments: {
+                              'otherUserId': controller.userAppointmentData.value?.doctor?.id ?? 0,
+                              'otherUserName': controller.doctorName,
+                              'otherUserProfilePicture': controller.doctorImage,
+                            },
+                          );
                         },
                         isSecondary: true,
                         isOutlined: true,
