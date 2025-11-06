@@ -89,7 +89,7 @@ class PatientDetailsStepThree extends GetView<PatientDetailsController> {
           ),
           24.verticalSpace,
           BodyTextOne(
-            text: 'Upload Files',
+            text: 'Upload File',
             fontWeight: FontWeight.bold,
           ),
           8.verticalSpace,

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:medtrac/api/models/appointment_listing_response.dart';
@@ -605,6 +606,7 @@ class DoctorService {
     try {
       final response = await _http
           .get('/appointments/doctor-appointment-details/$appointmentId');
+      log(response.data.toString());
       return DoctorAppointmentDetailsResponse.fromJson(response.data);
     } catch (e) {
       rethrow;
@@ -695,30 +697,31 @@ class DoctorService {
   }) async {
     try {
       print('📝 Submitting prescription for appointment: $appointmentId');
-      
+
       FormData formData = FormData();
-      
+
       // Add optional fields only if they have values
       if (prescriptionDate != null && prescriptionDate.isNotEmpty) {
         formData.fields.add(MapEntry('prescriptiondate', prescriptionDate));
       }
-      
+
       if (drugStrengthFrequency != null && drugStrengthFrequency.isNotEmpty) {
-        formData.fields.add(MapEntry('drugstrengthfrequency', drugStrengthFrequency));
+        formData.fields
+            .add(MapEntry('drugstrengthfrequency', drugStrengthFrequency));
       }
-      
+
       if (recommendedTests != null && recommendedTests.isNotEmpty) {
         formData.fields.add(MapEntry('recommendedtests', recommendedTests));
       }
-      
+
       if (notes != null && notes.isNotEmpty) {
         formData.fields.add(MapEntry('notes', notes));
       }
-      
+
       if (instructions != null && instructions.isNotEmpty) {
         formData.fields.add(MapEntry('instructions', instructions));
       }
-      
+
       // Add e-signature file if provided
       if (eSignature != null) {
         formData.files.add(
@@ -731,12 +734,12 @@ class DoctorService {
           ),
         );
       }
-      
+
       final response = await _http.put(
         'appointments/eprescription-appointment/$appointmentId',
         data: formData,
       );
-      
+
       print('✅ Prescription submitted successfully');
       return ApiResponse<String>.fromJson(
         response.data,
@@ -775,7 +778,8 @@ class DoctorService {
         isPending: profileData.isPending,
       );
       await SharedPrefsService.setUserInfo(jsonEncode(user.toJson()));
-      await SharedPrefsService.setProfileApprovalStatus(profileData.isPending?.name ?? '');
+      await SharedPrefsService.setProfileApprovalStatus(
+          profileData.isPending?.name ?? '');
     } catch (e) {
       // Log error but don't throw to prevent breaking the main flow
       print('Error updating SharedPrefs from doctor profile: $e');

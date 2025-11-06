@@ -13,7 +13,7 @@ class DoctorAppointmentDetailsResponse {
     return DoctorAppointmentDetailsResponse(
       status: json['status'] ?? false,
       message: json['message'] ?? '',
-      data: json['data'] != null 
+      data: json['data'] != null
           ? DoctorAppointmentDetails.fromJson(json['data'])
           : null,
     );
@@ -31,7 +31,7 @@ class DoctorAppointmentDetails {
   final String? timeRange;
   final String? slot;
   final String? reason;
-  
+
   // Completed appointment fields
   final String? doctorAdvice;
   final String? prescription;
@@ -40,7 +40,7 @@ class DoctorAppointmentDetails {
   final List<String>? primaryConcern;
   final List<String>? medication;
   final PatientDetailsInfo? patient;
-  
+
   // Payment details
   final double? totalFee;
   final double? platformFee;
@@ -72,6 +72,7 @@ class DoctorAppointmentDetails {
   });
 
   factory DoctorAppointmentDetails.fromJson(Map<String, dynamic> json) {
+    print(json['shared_documents']);
     return DoctorAppointmentDetails(
       id: json['id'] ?? 0,
       status: json['status'] ?? '',
@@ -87,14 +88,14 @@ class DoctorAppointmentDetails {
       prescription: json['prescription'],
       sharedDocuments: json['shared_documents'],
       patientHistory: json['patient_history'],
-      primaryConcern: json['primary_concern'] != null 
+      primaryConcern: json['primary_concern'] != null
           ? List<String>.from(json['primary_concern'])
           : null,
-      medication: json['medication'] != null 
+      medication: json['medication'] != null
           ? List<String>.from(json['medication'])
           : null,
-      patient: json['patient'] != null 
-          ? PatientDetailsInfo.fromJson(json['patient'])
+      patient: json['patient'] != null
+          ? PatientDetailsInfo.fromJson(json['patient'], json['patient_name'])
           : null,
       totalFee: json['total_fee']?.toDouble(),
       platformFee: json['platform_fee']?.toDouble(),
@@ -111,6 +112,7 @@ class PatientDetailsInfo {
   final int? stressLevel;
   final String? mood;
   final String? name;
+  final String? patientName;
 
   PatientDetailsInfo({
     this.picture,
@@ -119,16 +121,18 @@ class PatientDetailsInfo {
     this.stressLevel,
     this.mood,
     this.name,
+    this.patientName,
   });
 
-  factory PatientDetailsInfo.fromJson(Map<String, dynamic> json) {
+  factory PatientDetailsInfo.fromJson(Map<String, dynamic> json, String patientName) {
     return PatientDetailsInfo(
-      picture: json['picture'],
-      id: json['id'],
-      sleepQuality: json['sleep_quality'],
-      stressLevel: json['stress_level'],
-      mood: json['mood'],
-      name: json['name']
-    );
+        picture: json['picture'],
+        id: json['id'],
+        sleepQuality: json['sleep_quality'],
+        stressLevel: json['stress_level'],
+        mood: json['mood'],
+        name: json['name'],
+        patientName: patientName);
+        
   }
 }

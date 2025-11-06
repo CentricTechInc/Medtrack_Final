@@ -8,6 +8,7 @@ import 'package:medtrac/custom_widgets/custom_buttons.dart';
 import 'package:medtrac/custom_widgets/doctors_advice_widget.dart';
 import 'package:medtrac/custom_widgets/document_widget.dart';
 import 'package:medtrac/custom_widgets/patients_history_widget.dart';
+import 'package:medtrac/custom_widgets/view_shared_document.dart';
 import 'package:medtrac/routes/app_routes.dart';
 import 'package:medtrac/utils/enums.dart';
 import 'package:medtrac/custom_widgets/patient_health_status_widget.dart';
@@ -18,15 +19,25 @@ import 'package:medtrac/utils/assets.dart';
 
 class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
   final DocumentController documentController = Get.find<DocumentController>();
-   AppointmentSummaryScreen({super.key});
+  AppointmentSummaryScreen({super.key});
 
   // Helper methods to convert API data to proper enums
   MoodType _getMoodFromString(String mood) {
-    if (mood.toLowerCase().contains('excellent') || mood.toLowerCase().contains('great') || mood.toLowerCase().contains('amazing') || mood.toLowerCase().contains('good') || mood.toLowerCase().contains('fine') || mood.toLowerCase().contains('well')) {
+    if (mood.toLowerCase().contains('excellent') ||
+        mood.toLowerCase().contains('great') ||
+        mood.toLowerCase().contains('amazing') ||
+        mood.toLowerCase().contains('good') ||
+        mood.toLowerCase().contains('fine') ||
+        mood.toLowerCase().contains('well')) {
       return MoodType.good;
-    } else if (mood.toLowerCase().contains('moderate') || mood.toLowerCase().contains('neutral') || mood.toLowerCase().contains('okay')) {
+    } else if (mood.toLowerCase().contains('moderate') ||
+        mood.toLowerCase().contains('neutral') ||
+        mood.toLowerCase().contains('okay')) {
       return MoodType.moderate;
-    } else if (mood.toLowerCase().contains('poor') || mood.toLowerCase().contains('bad') || mood.toLowerCase().contains('terrible') || mood.toLowerCase().contains('awful')) {
+    } else if (mood.toLowerCase().contains('poor') ||
+        mood.toLowerCase().contains('bad') ||
+        mood.toLowerCase().contains('terrible') ||
+        mood.toLowerCase().contains('awful')) {
       return MoodType.poor;
     } else {
       return MoodType.moderate; // default
@@ -93,10 +104,10 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
   // Dynamic prescription documents widget
   Widget _buildPrescriptionDocuments() {
     final prescriptionUrls = controller.prescriptionDocuments;
-    
+
     if (prescriptionUrls.isEmpty) {
       return DocumentsWidget(
-        title: "Prescription", 
+        title: "Prescription",
         documents: documentController.allPerscriptionDocument,
       );
     }
@@ -126,7 +137,7 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
               itemBuilder: (context, index) {
                 final url = prescriptionUrls[index];
                 final documentName = _getDocumentName(url, 'Prescription');
-                
+
                 return GestureDetector(
                   onTap: () {
                     Get.to(() => PdfViewerScreen(
@@ -170,13 +181,23 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
   // Dynamic shared documents widget
   Widget _buildSharedDocuments() {
     final sharedDocUrls = controller.sharedDocumentUrls;
-    
-    if (sharedDocUrls.isEmpty) {
-      return DocumentsWidget(
-        title: "Shared Documents", 
-        documents: documentController.allSharedDocument,
-      );
-    }
+
+    // if (sharedDocUrls.isEmpty) {
+    //   return DocumentsWidget(
+    //     title: "Shared Documents",
+    //     documents: documentController.allSharedDocument,
+    //   );
+    // }
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.bright,
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: SharedDocumentWidget(
+        fileUrl: sharedDocUrls,
+      ),
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -204,7 +225,7 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
                 final url = sharedDocUrls[index];
                 final isImage = _isImageFile(url);
                 final documentName = _getDocumentName(url, 'Shared');
-                
+
                 return GestureDetector(
                   onTap: () {
                     if (isImage) {
@@ -302,11 +323,13 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
                 PatientsHistoryWidget(
                   medicationTags: controller.dynamicMedicationTags,
                   primaryConcernTags: controller.dynamicPrimaryConcernTags,
+                  patientHistory: controller.patientHistory,
                 ),
                 16.verticalSpace,
                 PatientHealthStatusWidget(
                   feeling: _getMoodFromString(controller.mood),
-                  sleepQuality: _getSleepQualityFromString(controller.sleepQuality),
+                  sleepQuality:
+                  _getSleepQualityFromString(controller.sleepQuality),
                   stressLevel: _getStressLevelFromInt(controller.stressLevel),
                 ),
                 16.verticalSpace,
@@ -319,8 +342,8 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
                     Get.toNamed(
                       AppRoutes.chatScreen,
                       arguments: {
-                        'otherUserId': controller.isUser 
-                            ? controller.doctorId 
+                        'otherUserId': controller.isUser
+                            ? controller.doctorId
                             : controller.patientId,
                         'otherUserName': controller.displayName,
                         'otherUserProfilePicture': controller.displayImage,
@@ -348,17 +371,18 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 64.w,
-            height: 64.h,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8.r),
-              image: DecorationImage(
-                image: _getImageProvider(),
-                fit: BoxFit.cover,
+          if (controller.displayImage.isNotEmpty)
+            Container(
+              width: 64.w,
+              height: 64.h,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8.r),
+                image: DecorationImage(
+                  image: _getImageProvider(),
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
-          ),
           8.horizontalSpace,
           Expanded(
             child: Column(
@@ -397,7 +421,7 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
     if (image.isNotEmpty) {
       return NetworkImage(image);
     }
-    
+
     if (controller.isUser) {
       return const AssetImage('assets/images/doctor_placeholder.png');
     } else {
@@ -419,7 +443,7 @@ class AppointmentSummaryScreen extends GetView<AppointmentSummaryController> {
 
   String _getDescription() {
     if (controller.isUser) {
-      return controller.displaySpeciality.isNotEmpty 
+      return controller.displaySpeciality.isNotEmpty
           ? "${controller.displaySpeciality} - Family Medicine"
           : "Specialist - Family Medicine";
     } else {
