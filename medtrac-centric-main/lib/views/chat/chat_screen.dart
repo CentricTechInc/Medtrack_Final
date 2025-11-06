@@ -100,17 +100,24 @@ class _ChatScreenState extends State<ChatScreen> {
                       : ListView.builder(
                           controller: _scrollController,
                           padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                          itemCount: controller.messages.length,
+                          itemCount: controller.messagesWithDividers.length,
                           itemBuilder: (context, index) {
-                            final message = controller.messages[index];
-                            final isMe = controller.isMyMessage(message);
+                            final item = controller.messagesWithDividers[index];
                             
-                            // Scroll to bottom when new messages arrive
-                            if (index == controller.messages.length - 1) {
-                              _scrollToBottom();
+                            // Check if this is a date divider or a message
+                            if (item['type'] == 'date_divider') {
+                              return _buildDateDivider(item['date'] as DateTime);
+                            } else {
+                              final message = item['message'] as ChatMessage;
+                              final isMe = controller.isMyMessage(message);
+                              
+                              // Scroll to bottom when new messages arrive
+                              if (index == controller.messagesWithDividers.length - 1) {
+                                _scrollToBottom();
+                              }
+                              
+                              return _buildMessageBubble(message, isMe);
                             }
-                            
-                            return _buildMessageBubble(message, isMe);
                           },
                         ),
                 ),
@@ -118,6 +125,46 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
     ));
+  }
+
+  Widget _buildDateDivider(DateTime date) {
+    final dateText = controller.formatDateDivider(date);
+    
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 16.h),
+      child: Row(
+        children: [
+          Expanded(
+            child: Divider(
+              color: AppColors.lightGrey,
+              thickness: 1,
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.w),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: BodyTextOne(
+                text: dateText,
+                color: AppColors.darkGrey,
+                fontWeight: FontWeight.w500,
+                fontSize: 12.sp,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Divider(
+              color: AppColors.lightGrey,
+              thickness: 1,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMessageBubble(ChatMessage message, bool isMe) {

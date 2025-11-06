@@ -12,11 +12,47 @@ import 'package:medtrac/routes/app_routes.dart';
 import 'package:medtrac/utils/app_colors.dart';
 import 'package:medtrac/utils/helper_functions.dart';
 
-class ConsultantTabView extends GetView<ConsultantTabViewController> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final TextEditingController _searchController = TextEditingController();
+class ConsultantTabView extends StatefulWidget {
+  const ConsultantTabView({super.key});
 
-  ConsultantTabView({super.key});
+  @override
+  State<ConsultantTabView> createState() => _ConsultantTabViewState();
+}
+
+class _ConsultantTabViewState extends State<ConsultantTabView> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late TextEditingController _searchController;
+  late ConsultantTabViewController controller;
+  Worker? _searchQueryWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find<ConsultantTabViewController>();
+    _searchController = TextEditingController();
+    
+    // Sync TextEditingController with controller's searchQuery
+    _searchController.text = controller.searchQuery.value;
+    
+    // Listen to searchQuery changes and update TextEditingController
+    _searchQueryWorker = ever(controller.searchQuery, (query) {
+      if (_searchController.text != query) {
+        _searchController.text = query;
+      }
+    });
+    
+    // Reset search when widget is initialized (when navigating to this tab)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.resetSearchState();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchQueryWorker?.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +84,7 @@ class ConsultantTabView extends GetView<ConsultantTabViewController> {
           ),
           // Filter Tabs
           Align(
-            alignment: Alignment.centerRight,
+            // alignment: Alignment.centerRight,
             child: FilterTabBar(
               tabs: controller.specialtyTabs,
               selectedTab: controller.selectedSpecialty,

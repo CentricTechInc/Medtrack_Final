@@ -11,6 +11,7 @@ class AddPhotoWidget extends StatefulWidget {
   final double height;
   final double borderRadius;
   final void Function(File?)? onImageChanged;
+
   const AddPhotoWidget({
     super.key,
     this.height = 140,
@@ -56,18 +57,18 @@ class _AddPhotoWidgetState extends State<AddPhotoWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          height: widget.height.h,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(widget.borderRadius.r),
-            border: Border.all(color: Colors.grey[300]!, width: 1),
-          ),
-          child: _image == null
-              ? GestureDetector(
-                  onTap: _pickImage,
-                  child: Column(
+        GestureDetector(
+          onTap: _pickImage,
+          child: Container(
+            width: double.infinity,
+            height: widget.height.h,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(widget.borderRadius.r),
+              border: Border.all(color: Colors.grey[300]!, width: 1),
+            ),
+            child: _image == null
+                ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -88,44 +89,44 @@ class _AddPhotoWidgetState extends State<AddPhotoWidget> {
                         color: AppColors.darkGreyText,
                       ),
                     ],
-                  ),
-                )
-              : Stack(
-                  children: [
-                    Center(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8.r),
-                        child: Image.file(
-                          _image!,
-                          width: 100.w,
-                          height: 100.w,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: _removeImage,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 2,
-                              ),
-                            ],
+                  )
+                : Stack(
+                    children: [
+                      Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.r),
+                          child: Image.file(
+                            _image!,
+                            width: 100.w,
+                            height: 100.w,
+                            fit: BoxFit.cover,
                           ),
-                          child:
-                              Icon(Icons.close, size: 20, color: Colors.black),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: GestureDetector(
+                          onTap: _removeImage,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Icon(Icons.close,
+                                size: 20, color: Colors.black),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ],
     );

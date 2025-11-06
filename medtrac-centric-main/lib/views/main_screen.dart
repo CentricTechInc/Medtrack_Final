@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:medtrac/controllers/balance_statistics_controller.dart';
 import 'package:medtrac/controllers/bottom_navigation_controller.dart';
 import 'package:medtrac/controllers/drawer_controller.dart';
+import 'package:medtrac/controllers/home_controller.dart';
+import 'package:medtrac/controllers/chat_inbox_controller.dart';
 import 'package:medtrac/custom_widgets/bottom_navigation_bar.dart';
 import 'package:medtrac/services/shared_preference_service.dart';
 import 'package:medtrac/utils/helper_functions.dart';
@@ -12,7 +14,6 @@ import 'package:medtrac/views/appointments/consultant_tab_view.dart';
 import 'package:medtrac/views/chat/chat_inbox_screen.dart';
 import 'package:medtrac/views/earnings/balance_statistics_screen.dart';
 import 'package:medtrac/wrapper/drawer_wrapper.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -33,6 +34,17 @@ class _MainScreenState extends State<MainScreen> {
     
     // Listen to bottom navigation changes
     _bottomNavController.selectedNavIndex.listen((index) {
+      // Check if navigating to home tab (index 0)
+      if (index == 0) {
+        // Refresh upcoming appointments when navigating to home
+        try {
+          final homeController = Get.find<HomeController>();
+          homeController.loadUpcomingAppointments();
+        } catch (e) {
+          // Controller might not be initialized yet, ignore
+        }
+      }
+      
       // Check if navigating to balance statistics tab (index 2 for doctor)
       if (!HelperFunctions.isUser() && index == 2) {
         // Refresh balance statistics data when tab is selected
@@ -41,6 +53,19 @@ class _MainScreenState extends State<MainScreen> {
           balanceController.refreshData();
         } catch (e) {
           // Controller might not be initialized yet, ignore
+        }
+      }
+      
+      // Check if navigating to chat tab (index 3)
+      if (index == 3) {
+        // Refresh conversations when navigating to chat tab
+        try {
+          final chatInboxController = Get.find<ChatInboxController>();
+          print('💬 MainScreen: Chat tab activated - Refreshing conversations');
+          chatInboxController.refreshConversationsOnTabSwitch();
+        } catch (e) {
+          // Controller might not be initialized yet, ignore
+          print('⚠️ ChatInboxController not found: $e');
         }
       }
     });

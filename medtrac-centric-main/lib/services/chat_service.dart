@@ -4,6 +4,7 @@ import 'package:medtrac/models/chat_models.dart';
 import 'package:medtrac/services/notification_service.dart';
 import 'package:medtrac/services/shared_preference_service.dart';
 import 'dart:convert';
+import 'dart:async';
 
 /// Chat Service for Firestore integration
 class ChatService extends GetxService {
@@ -119,22 +120,37 @@ class ChatService extends GetxService {
     required String userProfilePicture2,
   }) async {
     try {
+      // Validate that userIds are different
+      if (userId1 == userId2) {
+        throw Exception('Cannot create conversation: userId1 and userId2 are the same ($userId1)');
+      }
+      
       final conversationId = _generateConversationId(userId1, userId2);
       final conversationRef = _firestore.collection('conversations').doc(conversationId);
       
       // Check if conversation exists
       final doc = await conversationRef.get();
       
+      // Determine which user should be participant1 (always the smaller ID)
+      final smallerId = userId1 < userId2 ? userId1 : userId2;
+      final largerId = userId1 < userId2 ? userId2 : userId1;
+      
+      // Map names and pictures correctly based on ID order
+      final participant1Name = smallerId == userId1 ? userName1 : userName2;
+      final participant2Name = smallerId == userId1 ? userName2 : userName1;
+      final participant1ProfilePicture = smallerId == userId1 ? userProfilePicture1 : userProfilePicture2;
+      final participant2ProfilePicture = smallerId == userId1 ? userProfilePicture2 : userProfilePicture1;
+      
       if (!doc.exists) {
         // Create new conversation
         final now = DateTime.now();
         await conversationRef.set({
-          'participant1Id': userId1 < userId2 ? userId1 : userId2,
-          'participant2Id': userId1 < userId2 ? userId2 : userId1,
-          'participant1Name': userId1 < userId2 ? userName1 : userName2,
-          'participant2Name': userId1 < userId2 ? userName2 : userName1,
-          'participant1ProfilePicture': userId1 < userId2 ? userProfilePicture1 : userProfilePicture2,
-          'participant2ProfilePicture': userId1 < userId2 ? userProfilePicture2 : userProfilePicture1,
+          'participant1Id': smallerId,
+          'participant2Id': largerId,
+          'participant1Name': participant1Name,
+          'participant2Name': participant2Name,
+          'participant1ProfilePicture': participant1ProfilePicture,
+          'participant2ProfilePicture': participant2ProfilePicture,
           'lastMessage': null,
           'lastMessageTime': null,
           'lastMessageSenderId': null,
@@ -143,6 +159,32 @@ class ChatService extends GetxService {
           'createdAt': Timestamp.fromDate(now),
           'updatedAt': Timestamp.fromDate(now),
         });
+        print('✅ Created conversation: $conversationId');
+        print('   participant1Id: $smallerId ($participant1Name)');
+        print('   participant2Id: $largerId ($participant2Name)');
+      } else {
+        // Conversation exists - update participant info to ensure it's correct
+        // This fixes cases where conversation was created with wrong names
+        final existingData = doc.data()!;
+        final needsUpdate = 
+            existingData['participant1Id'] != smallerId ||
+            existingData['participant2Id'] != largerId ||
+            existingData['participant1Name'] != participant1Name ||
+            existingData['participant2Name'] != participant2Name;
+        
+        if (needsUpdate) {
+          print('⚠️ Updating conversation participant info: $conversationId');
+          await conversationRef.update({
+            'participant1Id': smallerId,
+            'participant2Id': largerId,
+            'participant1Name': participant1Name,
+            'participant2Name': participant2Name,
+            'participant1ProfilePicture': participant1ProfilePicture,
+            'participant2ProfilePicture': participant2ProfilePicture,
+            'updatedAt': Timestamp.now(),
+          });
+          print('✅ Updated conversation: participant1Id=$smallerId, participant2Id=$largerId');
+        }
       }
       
       return conversationId;
@@ -213,6 +255,7 @@ class ChatService extends GetxService {
   /// Get messages stream for a conversation
   Stream<List<ChatMessage>> getMessagesStream(String conversationId) {
     try {
+      print('📨 Getting messages stream for conversation: $conversationId');
       return _firestore
           .collection('conversations')
           .doc(conversationId)
@@ -220,10 +263,21 @@ class ChatService extends GetxService {
           .orderBy('timestamp', descending: false)
           .snapshots()
           .map((snapshot) {
-        return snapshot.docs.map((doc) => ChatMessage.fromFirestore(doc)).toList();
+        print('📨 Received ${snapshot.docs.length} messages for conversation: $conversationId');
+        final messages = snapshot.docs.map((doc) {
+          try {
+            return ChatMessage.fromFirestore(doc);
+          } catch (e) {
+            print('❌ Error parsing message ${doc.id}: $e');
+            return null;
+          }
+        }).whereType<ChatMessage>().toList();
+        print('📨 Parsed ${messages.length} valid messages');
+        return messages;
       });
     } catch (e) {
       print('❌ Error getting messages stream: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
       return Stream.value([]);
     }
   }
@@ -231,21 +285,86 @@ class ChatService extends GetxService {
   /// Get conversations stream for current user
   Stream<List<Conversation>> getConversationsStream(int currentUserId) {
     try {
-      // Use a simpler approach - get all conversations and filter
-      return _firestore
+      print('📱 Loading conversations for user ID: $currentUserId');
+      
+      // Get conversations where user is participant1
+      final stream1 = _firestore
           .collection('conversations')
-          .orderBy('lastMessageTime', descending: true)
-          .snapshots()
-          .map((snapshot) {
-        return snapshot.docs
-            .map((doc) => Conversation.fromFirestore(doc))
-            .where((conv) => 
-                conv.participant1Id == currentUserId || 
-                conv.participant2Id == currentUserId)
-            .toList();
+          .where('participant1Id', isEqualTo: currentUserId)
+          .snapshots();
+      
+      // Get conversations where user is participant2
+      final stream2 = _firestore
+          .collection('conversations')
+          .where('participant2Id', isEqualTo: currentUserId)
+          .snapshots();
+      
+      // Combine both streams using StreamController
+      final controller = StreamController<List<Conversation>>.broadcast();
+      final Map<String, Conversation> allConversations = {};
+      
+      void emitCombined() {
+        if (controller.isClosed) return;
+        final conversations = allConversations.values.toList();
+        conversations.sort((a, b) {
+          final timeA = a.lastMessageTime ?? a.createdAt;
+          final timeB = b.lastMessageTime ?? b.createdAt;
+          return timeB.compareTo(timeA);
+        });
+        controller.add(conversations);
+      }
+      
+      StreamSubscription? sub1;
+      StreamSubscription? sub2;
+      
+      sub1 = stream1.listen((snapshot) {
+        if (controller.isClosed) return;
+        for (var doc in snapshot.docs) {
+          try {
+            final conv = Conversation.fromFirestore(doc);
+            allConversations[conv.conversationId] = conv;
+          } catch (e) {
+            print('❌ Error parsing conversation from stream1: $e');
+          }
+        }
+        emitCombined();
+      }, onError: (error) {
+        print('❌ Error in stream1: $error');
+        if (!controller.isClosed) {
+          controller.addError(error);
+        }
       });
+      
+      sub2 = stream2.listen((snapshot) {
+        if (controller.isClosed) return;
+        for (var doc in snapshot.docs) {
+          try {
+            final conv = Conversation.fromFirestore(doc);
+            allConversations[conv.conversationId] = conv;
+          } catch (e) {
+            print('❌ Error parsing conversation from stream2: $e');
+          }
+        }
+        emitCombined();
+      }, onError: (error) {
+        print('❌ Error in stream2: $error');
+        if (!controller.isClosed) {
+          controller.addError(error);
+        }
+      });
+      
+      controller.onCancel = () {
+        sub1?.cancel();
+        sub2?.cancel();
+        if (!controller.isClosed) {
+          controller.close();
+        }
+      };
+      
+      return controller.stream;
     } catch (e) {
       print('❌ Error getting conversations stream: $e');
+      print('❌ Stack trace: ${StackTrace.current}');
       return Stream.value([]);
     }
   }
@@ -335,6 +454,49 @@ class ChatService extends GetxService {
     } catch (e) {
       print('❌ Error getting unread count: $e');
       return 0;
+    }
+  }
+
+  /// Delete a conversation (removes all messages and conversation document)
+  Future<void> deleteConversation(String conversationId, int currentUserId) async {
+    try {
+      print('🗑️ Deleting conversation: $conversationId');
+      
+      final conversationRef = _firestore.collection('conversations').doc(conversationId);
+      
+      // Verify the user is a participant before deleting
+      final conversationDoc = await conversationRef.get();
+      if (!conversationDoc.exists) {
+        throw Exception('Conversation not found');
+      }
+      
+      final data = conversationDoc.data()!;
+      final participant1Id = data['participant1Id'];
+      final participant2Id = data['participant2Id'];
+      
+      // Verify current user is a participant
+      if (currentUserId != participant1Id && currentUserId != participant2Id) {
+        throw Exception('User is not a participant in this conversation');
+      }
+      
+      // Delete all messages in the conversation
+      final messagesRef = conversationRef.collection('messages');
+      final messagesSnapshot = await messagesRef.get();
+      
+      final batch = _firestore.batch();
+      for (var doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      // Delete the conversation document
+      batch.delete(conversationRef);
+      
+      await batch.commit();
+      
+      print('✅ Successfully deleted conversation: $conversationId');
+    } catch (e) {
+      print('❌ Error deleting conversation: $e');
+      rethrow;
     }
   }
 

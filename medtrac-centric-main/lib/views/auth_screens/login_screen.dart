@@ -124,9 +124,12 @@ class LoginScreen extends StatelessWidget {
                     checkColor: AppColors.bright,
                     activeColor: AppColors.secondary,
                   ),
-                  BodyTextOne(
-                    text: 'Remember me',
-                    color: AppColors.darkGreyText,
+                  InkWell(
+                    onTap: () => loginController.toggleRememberMe(),
+                    child: BodyTextOne(
+                      text: 'Remember me',
+                      color: AppColors.darkGreyText,
+                    ),
                   ),
                 ],
               )),

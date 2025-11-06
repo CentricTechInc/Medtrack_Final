@@ -125,9 +125,50 @@ class SharedPrefsService {
 
   // ✅ User info management
   static User get getUserInfo {
-    final userInfoJson = getString(userInfo);
-    return User.fromJson(jsonDecode(userInfoJson));
+    try {
+      final userInfoJson = getString(userInfo);
+      
+      // Check if JSON string is empty or null
+      if (userInfoJson.isEmpty || userInfoJson.trim().isEmpty) {
+        print('⚠️ User info is empty, returning default user');
+        return _getDefaultUser();
+      }
+      
+      // Try to decode JSON
+      try {
+        final decodedJson = jsonDecode(userInfoJson);
+        if (decodedJson is Map<String, dynamic>) {
+          return User.fromJson(decodedJson);
+        } else {
+          print('⚠️ User info is not a valid JSON object, returning default user');
+          return _getDefaultUser();
+        }
+      } catch (e) {
+        print('❌ Error decoding user info JSON: $e');
+        print('❌ JSON string: $userInfoJson');
+        return _getDefaultUser();
+      }
+    } catch (e) {
+      print('❌ Error getting user info: $e');
+      return _getDefaultUser();
+    }
   }
+  
+  /// Get default user object when user info is not available
+  static User _getDefaultUser() {
+    return User(
+      id: 0,
+      name: '',
+      email: '',
+      phone: '',
+      profilePicture: '',
+      role: Role.user,
+      isProfileComplete: false,
+      age: '',
+      gender: '',
+    );
+  }
+  
   static Future<bool> setUserInfo(String userJson) async => await setString(userInfo, userJson);
 
   // ✅ User medical history management

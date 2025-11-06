@@ -3,9 +3,11 @@ import 'package:medtrac/api/services/doctor_service.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../api/models/doctor_response.dart';
 import '../utils/snackbar.dart';
+import 'package:medtrac/controllers/bottom_navigation_controller.dart';
 
 class ConsultantTabViewController extends GetxController {
   final DoctorService _doctorService = DoctorService();
+  Worker? _bottomNavWorker;
 
   // Observable variables
   var isLoading = false.obs;
@@ -29,6 +31,32 @@ class ConsultantTabViewController extends GetxController {
   @override
   onInit() {
     super.onInit();
+    
+    // Listen to bottom navigation changes to reset search when consultant tab becomes active
+    try {
+      final bottomNavController = Get.find<BottomNavigationController>();
+      _bottomNavWorker = ever(bottomNavController.selectedNavIndex, (navIndex) {
+        // Index 2 is consultant tab for users (check based on your app structure)
+        // For users, consultant tab is typically index 2
+        if (navIndex == 2) {
+          print('📋 Consultant tab activated - Resetting search state');
+          resetSearchState();
+        }
+      });
+    } catch (e) {
+      print('⚠️ BottomNavigationController not found: $e');
+    }
+    
+    loadDoctors();
+  }
+
+  /// Reset search state to default (show all doctors)
+  void resetSearchState() {
+    searchQuery.value = '';
+    selectedSpecialty.value = 'All';
+    selectedTabIndex.value = 0;
+    emergencyServicesOnly.value = false;
+    // Reload doctors with cleared filters
     loadDoctors();
   }
 
@@ -170,5 +198,11 @@ class ConsultantTabViewController extends GetxController {
   void toggleEmergencyServices(bool value) {
     emergencyServicesOnly.value = value;
     loadDoctors(); // Reload with new emergency filter
+  }
+
+  @override
+  void onClose() {
+    _bottomNavWorker?.dispose();
+    super.onClose();
   }
 }

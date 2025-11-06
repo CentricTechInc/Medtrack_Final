@@ -7,7 +7,6 @@ import 'package:medtrac/custom_widgets/custom_appbar_with_icons.dart';
 import 'package:medtrac/custom_widgets/custom_tab_bar.dart';
 import 'package:medtrac/custom_widgets/custom_text_field.dart';
 import 'package:medtrac/routes/app_routes.dart';
-import 'package:medtrac/services/shared_preference_service.dart';
 import 'package:medtrac/utils/app_colors.dart';
 import 'package:medtrac/utils/helper_functions.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
@@ -42,6 +41,15 @@ class _AppointmentsTabState extends State<AppointmentsTab> {
     _upcomingRefreshController = RefreshController(initialRefresh: false);
     _completedRefreshController = RefreshController(initialRefresh: false);
     _canceledRefreshController = RefreshController(initialRefresh: false);
+    
+    // Always load upcoming appointments when appointments tab is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appointmentsController = Get.find<AppointmentsController>();
+      print('📅 AppointmentsTab initialized - Loading upcoming appointments');
+      if (!appointmentsController.isLoading.value) {
+        appointmentsController.loadAppointments('Upcoming');
+      }
+    });
   }
 
   @override

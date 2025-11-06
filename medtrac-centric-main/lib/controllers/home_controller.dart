@@ -129,6 +129,12 @@ class HomeController extends WellnessHubController {
       });
     }
 
+    // Load upcoming appointments immediately when controller initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('📅 HomeController: Loading upcoming appointments on init');
+      loadUpcomingAppointments();
+    });
+
     // API calls moved to AppProcedures - will be called from splash and post-login
 
     // Show daily check-in popup after all initial loading is complete

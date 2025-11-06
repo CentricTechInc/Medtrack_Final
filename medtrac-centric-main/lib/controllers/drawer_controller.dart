@@ -1,15 +1,34 @@
 import 'package:get/get.dart';
 import 'package:medtrac/api/models/user.dart';
 import 'package:medtrac/services/shared_preference_service.dart';
+import 'package:medtrac/utils/enums.dart';
 
 class CustomDrawerController extends GetxController {
   final RxBool isDrawerOpen = false.obs;
   final RxBool isInitialized = false.obs;
 
-  User get user => SharedPrefsService.getUserInfo;
+  User get user {
+    try {
+      return SharedPrefsService.getUserInfo;
+    } catch (e) {
+      print('❌ Error getting user in drawer controller: $e');
+      // Return default user if there's an error
+      return User(
+        id: 0,
+        name: '',
+        email: '',
+        phone: '',
+        profilePicture: '',
+        role: Role.user,
+        isProfileComplete: false,
+        age: '',
+        gender: '',
+      );
+    }
+  }
 
-  String get userName => user.name;
-  String get userEmail => user.email;
+  String get userName => user.name.isEmpty ? 'User' : user.name;
+  String get userEmail => user.email.isEmpty ? '' : user.email;
   String get userProfilePhoto => user.profilePicture;
 
   @override

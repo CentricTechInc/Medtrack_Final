@@ -71,21 +71,28 @@ class AppointmentsController extends GetxController
       _bottomNavWorker = ever(bottomNavController.selectedNavIndex, (navIndex) {
         if (navIndex == 1 && !_isDisposed) {
           // Index 1 is the appointments tab
-          // Only refresh if it's been more than 5 seconds since last refresh
-          final now = DateTime.now();
-          if (_lastRefreshTime == null ||
-              now.difference(_lastRefreshTime!).inSeconds > 5) {
-            _lastRefreshTime = now;
-            // Refresh current tab data when appointments tab becomes active
+          // Always load upcoming appointments when navigating to appointments module
+          _lastRefreshTime = DateTime.now();
+          print('📅 Appointments tab activated - Loading upcoming appointments');
+          if (!isLoading.value) {
+            // Always load upcoming appointments first
+            loadAppointments('Upcoming');
+            // Also load current tab data if it's different from Upcoming
             final currentStatus = _statuses[currentIndex.value];
-            if (!isLoading.value) {
-              loadAppointments(currentStatus);
+            if (currentStatus != 'Upcoming' && !isLoading.value) {
+              // Load current tab data after a small delay to avoid race conditions
+              Future.delayed(const Duration(milliseconds: 300), () {
+                if (!_isDisposed && !isLoading.value) {
+                  loadAppointments(currentStatus);
+                }
+              });
             }
           }
         }
       });
     } catch (e) {
       // BottomNavigationController not found, continue without listener
+      print('⚠️ BottomNavigationController not found: $e');
     }
 
     // Load initial data

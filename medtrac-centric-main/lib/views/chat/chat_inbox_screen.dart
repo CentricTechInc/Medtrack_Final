@@ -10,13 +10,31 @@ import 'package:medtrac/utils/app_colors.dart';
 import 'package:medtrac/utils/assets.dart';
 import 'package:medtrac/utils/helper_functions.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
-class ChatInboxScreen extends GetView<ChatInboxController> {
-  ChatInboxScreen({super.key});
+class ChatInboxScreen extends StatefulWidget {
+  const ChatInboxScreen({super.key});
+
+  @override
+  State<ChatInboxScreen> createState() => _ChatInboxScreenState();
+}
+
+class _ChatInboxScreenState extends State<ChatInboxScreen> with AutomaticKeepAliveClientMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final ChatInboxController controller;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find<ChatInboxController>();
+  }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       key: _scaffoldKey,
       body: Column(
@@ -39,46 +57,92 @@ class ChatInboxScreen extends GetView<ChatInboxController> {
                   ),
                   32.verticalSpace,
                   Expanded(
-                    child: Obx(() {
-                      if (controller.isLoadingConversations.value) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      }
-
-                      final conversations = controller.filteredConversations;
-
-                      if (conversations.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.chat_bubble_outline,
-                                size: 64.sp,
-                                color: AppColors.lightGrey,
-                              ),
-                              16.verticalSpace,
-                              BodyTextOne(
-                                text: controller.searchQuery.value.isEmpty
-                                    ? "No conversations yet"
-                                    : "No conversations found",
-                                color: AppColors.darkGrey,
-                              ),
-                            ],
+                    child: SmartRefresher(
+                      key: const ValueKey('chat_inbox_refresher'),
+                      controller: controller.refreshController,
+                      enablePullDown: true,
+                      enablePullUp: false,
+                      onRefresh: controller.onRefresh,
+                      header: WaterDropHeader(
+                        complete: Text(
+                          'Refresh Completed',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 14.sp,
                           ),
-                        );
-                      }
+                        ),
+                        waterDropColor: AppColors.primary,
+                      ),
+                      child: Obx(() {
+                        if (controller.isLoadingConversations.value && controller.conversations.isEmpty) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
 
-                      return ListView.separated(
-                        separatorBuilder: (context, index) => 32.verticalSpace,
-                        itemCount: conversations.length,
-                        itemBuilder: (context, index) {
-                          final conversation = conversations[index];
-                          return InboxTileWidget(conversation: conversation);
-                        },
-                      );
-                    }),
+                        final conversations = controller.filteredConversations;
+
+                        if (conversations.isEmpty) {
+                          return SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.6,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.chat_bubble_outline,
+                                      size: 64.sp,
+                                      color: AppColors.lightGrey,
+                                    ),
+                                    16.verticalSpace,
+                                    BodyTextOne(
+                                      text: controller.searchQuery.value.isEmpty
+                                          ? "No conversations yet"
+                                          : "No conversations found",
+                                      color: AppColors.darkGrey,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          separatorBuilder: (context, index) => 32.verticalSpace,
+                          itemCount: conversations.length,
+                          itemBuilder: (context, index) {
+                            final conversation = conversations[index];
+                            return Dismissible(
+                              key: Key(conversation.conversationId),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: EdgeInsets.only(right: 24.w),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error,
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: Icon(
+                                  Icons.delete,
+                                  color: AppColors.bright,
+                                  size: 28.sp,
+                                ),
+                              ),
+                              confirmDismiss: (direction) async {
+                                // The delete confirmation is handled in the controller
+                                await controller.deleteConversation(conversation);
+                                return false; // Don't dismiss automatically, let the stream handle it
+                              },
+                              child: InboxTileWidget(conversation: conversation),
+                            );
+                          },
+                        );
+                      }),
+                    ),
                   ),
                 ],
               ),

@@ -23,12 +23,10 @@ class FilterTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: height ?? 50.h,
-      padding: EdgeInsets.zero,
       width: MediaQuery.sizeOf(context).width - 20.w,
       decoration: BoxDecoration(
         color: AppColors.lightGrey,
-        borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(16.r), bottomLeft: Radius.circular(16.r)),
+        borderRadius: BorderRadius.all(Radius.circular(16.r)),
       ),
       child: ListView.builder(
         padding: EdgeInsets.zero,
