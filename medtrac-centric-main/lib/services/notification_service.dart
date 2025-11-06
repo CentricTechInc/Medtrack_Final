@@ -20,12 +20,86 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('📲 From: ${message.from}');
   print('📲 Data: ${message.data}');
   
+  // Initialize local notifications plugin for background handler
+  final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+  
+  // Initialize Android settings
+  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
+  
+  // Initialize local notifications (this is safe to call multiple times)
+  await localNotifications.initialize(initSettings);
+  
+  // Create notification channel for Android 8.0+ (required for background notifications)
+  if (Platform.isAndroid) {
+    final androidImplementation = localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidImplementation != null) {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'medtrac_channel',
+        'MedTrac Notifications',
+        description: 'Notifications for MedTrac app',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+      
+      await androidImplementation.createNotificationChannel(channel);
+      print('📱 Background handler: Android notification channel created');
+    }
+  }
+  
   // Check if this is a call notification
   if (message.data.containsKey('rtcToken') && message.data['rtcToken']?.isNotEmpty == true) {
     print('📞 Detected CALL notification in background');
     await _handleIncomingCallBackground(message);
   } else {
-    print('📧 Regular notification in background');
+    print('📧 Regular notification in background - showing local notification');
+    
+    // Show local notification for regular messages
+    String title = message.notification?.title ?? 'New Message';
+    String body = message.notification?.body ?? 'You have a new message';
+    String payload = jsonEncode(message.data);
+    
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'medtrac_channel',
+      'MedTrac Notifications',
+      channelDescription: 'Notifications for MedTrac app',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await localNotifications.show(
+      message.hashCode,
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
+    
+    print('✅ Background notification shown: $title');
   }
 }
 
@@ -180,12 +254,33 @@ class NotificationService {
     
     print('📱 Local notifications initialization result: $initialized');
     
-    // Check if we can show notifications
+    // Create notification channel for Android 8.0+
     if (Platform.isAndroid) {
-      bool? areNotificationsEnabled = await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.areNotificationsEnabled();
-      print('📱 Android notifications enabled: $areNotificationsEnabled');
+      final androidImplementation = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      
+      if (androidImplementation != null) {
+        // Create notification channel
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'medtrac_channel',
+          'MedTrac Notifications',
+          description: 'Notifications for MedTrac app',
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+        );
+        
+        await androidImplementation.createNotificationChannel(channel);
+        print('📱 Android notification channel created: medtrac_channel');
+        
+        // Check if we can show notifications
+        bool? areNotificationsEnabled = await androidImplementation.areNotificationsEnabled();
+        print('📱 Android notifications enabled: $areNotificationsEnabled');
+        
+        if (areNotificationsEnabled == false) {
+          print('⚠️ Android notifications are disabled. User needs to enable them in settings.');
+        }
+      }
     }
     
     print('📱 Local notifications initialized successfully');

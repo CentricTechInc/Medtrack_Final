@@ -282,10 +282,10 @@ class LastMessageWidget extends StatelessWidget {
               fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
-          if (unreadCount > 0) ...[
-            8.horizontalSpace,
-            UnreadMessageCounterWidget(count: unreadCount),
-          ],
+          // if (unreadCount > 0) ...[
+          //   8.horizontalSpace,
+          //  UnreadMessageCounterWidget(count: unreadCount),
+          // ],
         ],
       ),
     );
